@@ -1,0 +1,743 @@
+import { useState, useEffect } from "react";
+
+// ─── SEED DATA ────────────────────────────────────────────────────────────────
+const SEED_RECIPES = [
+  {
+    id: 1,
+    name: "محصول قوجي – إثيوبيا",
+    date: "2025-06-01",
+    brewType: "espresso",
+    origin: "إثيوبيا – قوجي",
+    processing: "مجفف (نص حمصة)",
+    roastery: "",
+    roastLevel: "متوسط فاتح",
+    machine: "",
+    basketSize: "18g",
+    grinder: "E55",
+    grindSetting: "57",
+    coffeeAmount: 18,
+    waterAmount: 33,
+    extractionAmount: 33,
+    ratio: "1:1.83",
+    waterTemp: "",
+    extractionTime: "",
+    tds: "",
+    bloom: "",
+    bloomTime: "",
+    pours: "",
+    sensory: { aroma: "", start: "", mid: "", finish: "", aftertaste: "متوازن" },
+    notes: "الريشو 1.83، الاستخلاص من 32 إلى 33 ml، الطعم متوازن.",
+    rating: 4,
+  },
+  {
+    id: 2,
+    name: "يارا – إندونيسيا قايو",
+    date: "2025-06-01",
+    brewType: "filter",
+    brewDevice: "V60",
+    brewDeviceNote: "01",
+    origin: "إندونيسيا – قايو",
+    processing: "Carbonic Maceration (تنقيع كربوني)",
+    altitude: "1800m",
+    roastery: "OSAR",
+    roastLevel: "",
+    grinder: "فيموبوك",
+    grindSetting: "2.0",
+    coffeeAmount: 15,
+    waterAmount: 250,
+    extractionAmount: "",
+    ratio: "1:16.7",
+    waterTemp: 90,
+    extractionTime: "",
+    bloom: 30,
+    bloomTime: 45,
+    pours: "3 صبات: بلوم 30g ← 140g ← 250g",
+    sensory: {
+      aroma: "فواكه حمراء ذات طابع حلو",
+      start: "فراولة",
+      mid: "توت",
+      finish: "حلاوة مرتفعة تشبه الحلوى الصلبة",
+      aftertaste: "حلاوة ممتدة على مؤخرة اللسان مع إحساس معدني مستساغ",
+    },
+    notes:
+      "تقليل الماء من 255g إلى 250g عزّز الحلاوة بشكل ملحوظ. لا مرارة. لا جفاف في الفم. يُوصى بإعادة التجربة لتسجيل زمن الاستخلاص.",
+    rating: 5,
+  },
+];
+
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const BREW_DEVICES = [
+  { value: "V60", label: "V60", notePlaceholder: "مثال: 01 أو 02" },
+  { value: "Orea", label: "Orea", notePlaceholder: "مثال: V3، V4، أو نوع الأداة" },
+  { value: "Pulsar", label: "Pulsar", notePlaceholder: "مثال: صغير (1-2) أو كبير (1-4)" },
+  { value: "UFO V2", label: "UFO V2", notePlaceholder: "ملاحظات إضافية على الأداة" },
+  { value: "Chemex", label: "Chemex", notePlaceholder: "مثال: 3-cup أو 6-cup" },
+  { value: "Kalita Wave", label: "Kalita Wave", notePlaceholder: "مثال: 155 أو 185" },
+  { value: "AeroPress", label: "AeroPress", notePlaceholder: "مثال: عكسي أو عادي" },
+  { value: "French Press", label: "French Press", notePlaceholder: "الحجم أو أي ملاحظة" },
+  { value: "Siphon", label: "Siphon", notePlaceholder: "" },
+  { value: "أخرى", label: "أخرى", notePlaceholder: "اسم الأداة أو وصفها" },
+];
+
+const ROAST_LEVELS = ["فاتح جداً", "فاتح", "متوسط فاتح", "متوسط", "متوسط داكن", "داكن"];
+const GRIND_LEVELS = ["خشن جداً", "خشن", "متوسط خشن", "متوسط", "متوسط ناعم", "ناعم", "ناعم جداً"];
+const PROCESSING = ["واشد (Washed)", "مجفف (Natural)", "عسلي (Honey)", "تنقيع كربوني (CM)", "مجفف – نص حمصة", "تخمير لاهوائي", "أخرى"];
+
+const EMPTY_FORM = {
+  name: "", date: new Date().toISOString().split("T")[0],
+  brewType: "filter",
+  // filter fields
+  brewDevice: "", brewDeviceNote: "",
+  // espresso fields
+  machine: "", basketSize: "",
+  // shared
+  origin: "", altitude: "", processing: "", roastery: "", roastLevel: "",
+  grinder: "", grindSetting: "",
+  coffeeAmount: "", waterAmount: "", extractionAmount: "",
+  ratio: "", waterTemp: "", extractionTime: "", tds: "",
+  bloom: "", bloomTime: "", pours: "",
+  sensory: { aroma: "", start: "", mid: "", finish: "", aftertaste: "" },
+  notes: "", rating: 4,
+};
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function computeRatio(coffee, water) {
+  if (!coffee || !water) return "";
+  return `1:${(water / coffee).toFixed(1)}`;
+}
+
+function Stars({ value, onChange }) {
+  return (
+    <div style={{ display: "flex", gap: 6 }}>
+      {[1, 2, 3, 4, 5].map((s) => (
+        <span
+          key={s}
+          onClick={() => onChange && onChange(s)}
+          style={{
+            fontSize: 22, cursor: onChange ? "pointer" : "default",
+            color: s <= value ? "#D4A843" : "#2e2318",
+            transition: "transform .15s, color .15s",
+            display: "inline-block",
+            textShadow: s <= value ? "0 0 8px rgba(212,168,67,.4)" : "none",
+          }}
+          onMouseEnter={e => onChange && (e.target.style.transform = "scale(1.35)")}
+          onMouseLeave={e => (e.target.style.transform = "scale(1)")}
+        >★</span>
+      ))}
+    </div>
+  );
+}
+
+function Tag({ children }) {
+  return (
+    <span style={{
+      background: "#1e160c", border: "1px solid #3a2c1e",
+      borderRadius: 20, padding: "3px 10px",
+      fontSize: 11, color: "#a08060", fontFamily: "monospace",
+      whiteSpace: "nowrap",
+    }}>{children}</span>
+  );
+}
+
+function FieldLabel({ children, required }) {
+  return (
+    <label style={{
+      display: "block", fontSize: 10, color: "#7a6248",
+      marginBottom: 6, letterSpacing: "0.1em",
+      textTransform: "uppercase", fontFamily: "monospace",
+    }}>
+      {children}{required && <span style={{ color: "#D4A843", marginRight: 3 }}>*</span>}
+    </label>
+  );
+}
+
+function FInput({ label, type = "text", value, onChange, placeholder, required, options, hint }) {
+  const base = {
+    width: "100%", background: "#0f0b07",
+    border: "1px solid #2e2318", borderRadius: 10,
+    padding: "10px 14px", color: "#e8d8c0",
+    fontFamily: "'Noto Sans Arabic', monospace", fontSize: 13,
+    outline: "none", transition: "border-color .2s",
+    boxSizing: "border-box",
+  };
+  return (
+    <div style={{ marginBottom: 14 }}>
+      {label && <FieldLabel required={required}>{label}</FieldLabel>}
+      {options ? (
+        <select value={value} onChange={onChange}
+          style={{ ...base, cursor: "pointer" }}>
+          <option value="">اختر...</option>
+          {options.map(o => (
+            <option key={o.value || o} value={o.value || o}>{o.label || o}</option>
+          ))}
+        </select>
+      ) : type === "textarea" ? (
+        <textarea value={value} onChange={onChange} placeholder={placeholder}
+          rows={3} style={{ ...base, resize: "vertical" }}
+          onFocus={e => (e.target.style.borderColor = "#D4A843")}
+          onBlur={e => (e.target.style.borderColor = "#2e2318")} />
+      ) : (
+        <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+          style={base}
+          onFocus={e => (e.target.style.borderColor = "#D4A843")}
+          onBlur={e => (e.target.style.borderColor = "#2e2318")} />
+      )}
+      {hint && <div style={{ fontSize: 10, color: "#5a4535", marginTop: 4, fontFamily: "monospace" }}>{hint}</div>}
+    </div>
+  );
+}
+
+function Section({ title, icon, children }) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8,
+        marginBottom: 14, paddingBottom: 8,
+        borderBottom: "1px solid #2a1e12",
+      }}>
+        <span style={{ fontSize: 16 }}>{icon}</span>
+        <span style={{ fontSize: 11, color: "#8a6a40", letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: "monospace", fontWeight: 700 }}>{title}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ─── BREW TYPE TOGGLE ─────────────────────────────────────────────────────────
+function BrewTypeToggle({ value, onChange }) {
+  return (
+    <div style={{
+      display: "flex", background: "#0f0b07",
+      borderRadius: 12, padding: 4, gap: 4,
+      border: "1px solid #2e2318", marginBottom: 24,
+    }}>
+      {[
+        { v: "espresso", label: "إسبريسو", icon: "☕" },
+        { v: "filter", label: "قهوة مقطرة", icon: "🫗" },
+      ].map(opt => (
+        <button key={opt.v} onClick={() => onChange(opt.v)}
+          style={{
+            flex: 1, border: "none", borderRadius: 9, padding: "10px 0",
+            cursor: "pointer", fontFamily: "'Noto Sans Arabic', sans-serif",
+            fontSize: 13, fontWeight: 700, transition: "all .2s",
+            background: value === opt.v
+              ? "linear-gradient(135deg, #D4A843, #a07828)"
+              : "transparent",
+            color: value === opt.v ? "#0f0b07" : "#6a5040",
+          }}>
+          {opt.icon} {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── DEVICE PICKER ────────────────────────────────────────────────────────────
+function DevicePicker({ device, deviceNote, onDevice, onNote }) {
+  const selected = BREW_DEVICES.find(d => d.value === device);
+  return (
+    <>
+      <div style={{ marginBottom: 14 }}>
+        <FieldLabel required>الأداة</FieldLabel>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {BREW_DEVICES.map(d => (
+            <button key={d.value} onClick={() => onDevice(d.value)}
+              style={{
+                background: device === d.value ? "linear-gradient(135deg,#D4A843,#a07828)" : "#0f0b07",
+                border: `1px solid ${device === d.value ? "#D4A843" : "#2e2318"}`,
+                borderRadius: 20, padding: "6px 14px",
+                color: device === d.value ? "#0f0b07" : "#8a7060",
+                fontFamily: "'Noto Sans Arabic', monospace",
+                fontSize: 12, cursor: "pointer", fontWeight: device === d.value ? 700 : 400,
+                transition: "all .18s",
+              }}>
+              {d.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {device && (
+        <div style={{
+          background: "#110d08", border: "1px solid #2a1e10",
+          borderRadius: 10, padding: "12px 14px", marginBottom: 14,
+          borderRight: "3px solid #D4A843",
+        }}>
+          <FieldLabel>ملاحظة الأداة</FieldLabel>
+          <input
+            value={deviceNote}
+            onChange={e => onNote(e.target.value)}
+            placeholder={selected?.notePlaceholder || "أي تفصيل إضافي..."}
+            style={{
+              width: "100%", background: "transparent", border: "none",
+              color: "#e8d8c0", fontFamily: "'Noto Sans Arabic', monospace",
+              fontSize: 13, outline: "none", boxSizing: "border-box",
+            }}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─── RECIPE CARD ──────────────────────────────────────────────────────────────
+function RecipeCard({ recipe, onDelete, onView }) {
+  const isEspresso = recipe.brewType === "espresso";
+  return (
+    <div onClick={() => onView(recipe)}
+      style={{
+        background: "linear-gradient(135deg,#1a130a 0%,#211710 100%)",
+        border: "1px solid #312415",
+        borderRadius: 16, padding: "20px",
+        cursor: "pointer", transition: "all .25s",
+        position: "relative", overflow: "hidden",
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = "translateY(-3px)";
+        e.currentTarget.style.borderColor = "#D4A843";
+        e.currentTarget.style.boxShadow = "0 10px 36px rgba(212,168,67,.12)";
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.borderColor = "#312415";
+        e.currentTarget.style.boxShadow = "none";
+      }}
+    >
+      {/* glow */}
+      <div style={{
+        position: "absolute", top: 0, right: 0, width: 90, height: 90,
+        background: "radial-gradient(circle at top right, rgba(212,168,67,.07) 0%, transparent 70%)",
+        pointerEvents: "none",
+      }} />
+
+      {/* header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+        <div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, color: "#f0e4cc", fontWeight: 700, marginBottom: 2 }}>{recipe.name}</div>
+          <div style={{ fontSize: 11, color: "#6a5035", fontFamily: "monospace" }}>
+            {new Date(recipe.date).toLocaleDateString("ar-SA")}
+            {recipe.roastery && ` · ${recipe.roastery}`}
+          </div>
+        </div>
+        <button onClick={e => { e.stopPropagation(); onDelete(recipe.id); }}
+          style={{ background: "none", border: "none", color: "#3e2e1e", cursor: "pointer", fontSize: 14, padding: "2px 6px", transition: "color .2s" }}
+          onMouseEnter={e => (e.target.style.color = "#e05555")}
+          onMouseLeave={e => (e.target.style.color = "#3e2e1e")}>✕</button>
+      </div>
+
+      {/* tags */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+        <Tag>{isEspresso ? "☕ إسبريسو" : `🫗 ${recipe.brewDevice || "مقطرة"}${recipe.brewDeviceNote ? ` (${recipe.brewDeviceNote})` : ""}`}</Tag>
+        {recipe.processing && <Tag>{recipe.processing}</Tag>}
+        {recipe.waterTemp && <Tag>{recipe.waterTemp}°م</Tag>}
+      </div>
+
+      {/* numbers */}
+      <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
+        {[
+          { l: "بن", v: recipe.coffeeAmount ? `${recipe.coffeeAmount}g` : null },
+          isEspresso
+            ? { l: "استخلاص", v: recipe.extractionAmount ? `${recipe.extractionAmount}ml` : null }
+            : { l: "ماء", v: recipe.waterAmount ? `${recipe.waterAmount}ml` : null },
+          { l: "ريشو", v: recipe.ratio || null },
+        ].filter(x => x.v).map((x, i) => (
+          <div key={i} style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#D4A843", fontFamily: "monospace" }}>{x.v}</div>
+            <div style={{ fontSize: 10, color: "#6a5035" }}>{x.l}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Stars value={recipe.rating} />
+        {recipe.grinder && <span style={{ fontSize: 11, color: "#5a4030", fontFamily: "monospace" }}>⚙ {recipe.grinder} {recipe.grindSetting && `· ${recipe.grindSetting}`}</span>}
+      </div>
+    </div>
+  );
+}
+
+// ─── DETAIL VIEW ──────────────────────────────────────────────────────────────
+function DetailView({ recipe, onClose }) {
+  const isEspresso = recipe.brewType === "espresso";
+  const dataRows = [
+    isEspresso ? ["المكينة", recipe.machine] : ["الأداة", recipe.brewDevice + (recipe.brewDeviceNote ? ` – ${recipe.brewDeviceNote}` : "")],
+    isEspresso ? ["حجم الباسكت", recipe.basketSize] : ["الطاحونة", recipe.grinder],
+    ["الطاحونة", isEspresso ? recipe.grinder : null],
+    isEspresso ? null : ["درجة الطحنة (نوع)", null],
+    ["إعداد الطحن", recipe.grindSetting],
+    ["البن", recipe.coffeeAmount ? `${recipe.coffeeAmount}g` : null],
+    isEspresso
+      ? ["كمية الاستخلاص", recipe.extractionAmount ? `${recipe.extractionAmount}ml` : null]
+      : ["كمية الماء", recipe.waterAmount ? `${recipe.waterAmount}ml` : null],
+    ["الريشو", recipe.ratio],
+    ["درجة الحرارة", recipe.waterTemp ? `${recipe.waterTemp}°م` : null],
+    ["زمن الاستخلاص", recipe.extractionTime ? `${recipe.extractionTime}ث` : null],
+    ["TDS", recipe.tds ? `${recipe.tds}%` : null],
+    !isEspresso ? ["البلوم", recipe.bloom ? `${recipe.bloom}g` : null] : null,
+    !isEspresso ? ["مدة البلوم", recipe.bloomTime ? `${recipe.bloomTime}ث` : null] : null,
+    !isEspresso ? ["الصبات", recipe.pours] : null,
+    ["الأصل", recipe.origin],
+    ["الارتفاع", recipe.altitude],
+    ["المعالجة", recipe.processing],
+    ["المحمصة", recipe.roastery],
+    ["درجة التحميص", recipe.roastLevel],
+  ].filter(r => r && r[1]);
+
+  const sensoryFields = [
+    ["الرائحة", recipe.sensory?.aroma],
+    ["بداية الكوب", recipe.sensory?.start],
+    ["منتصف الكوب", recipe.sensory?.mid],
+    ["نهاية الكوب", recipe.sensory?.finish],
+    ["Aftertaste", recipe.sensory?.aftertaste],
+  ].filter(([, v]) => v);
+
+  return (
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, background: "rgba(8,5,2,.88)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 1000, padding: 20, backdropFilter: "blur(6px)",
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: "linear-gradient(160deg,#160f07 0%,#1e1509 100%)",
+        border: "1px solid #3a2a15", borderRadius: 20,
+        padding: 32, width: "100%", maxWidth: 580,
+        maxHeight: "90vh", overflowY: "auto",
+        boxShadow: "0 24px 80px rgba(0,0,0,.9)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          <div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#f0e4cc", margin: "0 0 4px" }}>{recipe.name}</h2>
+            <div style={{ fontSize: 12, color: "#6a5035", fontFamily: "monospace" }}>
+              {new Date(recipe.date).toLocaleDateString("ar-SA")}
+              {recipe.origin && ` · ${recipe.origin}`}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#6a5035", cursor: "pointer", fontSize: 20 }}>✕</button>
+        </div>
+
+        <Stars value={recipe.rating} />
+
+        {/* data grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 20 }}>
+          {dataRows.map(([k, v]) => (
+            <div key={k} style={{ background: "#0f0b07", borderRadius: 10, padding: "11px 14px", border: "1px solid #221810" }}>
+              <div style={{ fontSize: 9, color: "#5a4535", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{k}</div>
+              <div style={{ fontSize: 14, color: "#D4A843", fontFamily: "monospace", fontWeight: 700 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* sensory */}
+        {sensoryFields.length > 0 && (
+          <div style={{ marginTop: 20 }}>
+            <div style={{ fontSize: 10, color: "#7a6040", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "monospace", marginBottom: 10 }}>◈ التجربة الحسية</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {sensoryFields.map(([k, v]) => (
+                <div key={k} style={{ display: "flex", gap: 12, alignItems: "flex-start", background: "#0f0b07", borderRadius: 10, padding: "10px 14px", border: "1px solid #221810" }}>
+                  <span style={{ fontSize: 10, color: "#5a4535", fontFamily: "monospace", whiteSpace: "nowrap", paddingTop: 2, minWidth: 70 }}>{k}</span>
+                  <span style={{ fontSize: 13, color: "#c8a870", lineHeight: 1.5 }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* notes */}
+        {recipe.notes && (
+          <div style={{ marginTop: 16, background: "#0f0b07", borderRadius: 10, padding: 14, border: "1px solid #221810", borderRight: "3px solid #D4A843" }}>
+            <div style={{ fontSize: 9, color: "#5a4535", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>ملاحظات</div>
+            <div style={{ fontSize: 13, color: "#b09060", lineHeight: 1.7 }}>{recipe.notes}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── ADD FORM ─────────────────────────────────────────────────────────────────
+function AddForm({ onSave, onClose }) {
+  const [form, setForm] = useState({ ...EMPTY_FORM, sensory: { ...EMPTY_FORM.sensory } });
+  const f = field => e => setForm(p => ({ ...p, [field]: e.target.value }));
+  const fNum = field => e => {
+    const v = e.target.value;
+    setForm(p => {
+      const next = { ...p, [field]: v };
+      // auto ratio
+      const coffee = parseFloat(field === "coffeeAmount" ? v : p.coffeeAmount);
+      const water = parseFloat(field === "waterAmount" ? v : p.waterAmount);
+      if (!isNaN(coffee) && !isNaN(water) && coffee > 0) next.ratio = computeRatio(coffee, water);
+      return next;
+    });
+  };
+  const fSensory = field => e => setForm(p => ({ ...p, sensory: { ...p.sensory, [field]: e.target.value } }));
+
+  const handleSave = () => {
+    if (!form.name) return alert("اكتب اسماً للوصفة");
+    if (form.brewType === "filter" && !form.brewDevice) return alert("اختر الأداة");
+    onSave({ ...form, id: Date.now() });
+  };
+
+  return (
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, background: "rgba(8,5,2,.88)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 1000, padding: 20, backdropFilter: "blur(6px)",
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: "linear-gradient(160deg,#160f07 0%,#1e1509 100%)",
+        border: "1px solid #3a2a15", borderRadius: 20,
+        padding: 32, width: "100%", maxWidth: 600,
+        maxHeight: "92vh", overflowY: "auto",
+        boxShadow: "0 24px 80px rgba(0,0,0,.9)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: "#f0e4cc", margin: 0 }}>وصفة جديدة</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#6a5035", cursor: "pointer", fontSize: 20 }}>✕</button>
+        </div>
+
+        {/* brew type */}
+        <BrewTypeToggle value={form.brewType} onChange={v => setForm(p => ({ ...p, brewType: v, brewDevice: "", brewDeviceNote: "" }))} />
+
+        <Section title="المعلومات الأساسية" icon="📋">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+            <div style={{ gridColumn: "1/-1" }}>
+              <FInput label="اسم الوصفة" value={form.name} onChange={f("name")} required placeholder="مثال: يارا – إثيوبيا سيداما" />
+            </div>
+            <FInput label="التاريخ" type="date" value={form.date} onChange={f("date")} />
+            <FInput label="المحمصة" value={form.roastery} onChange={f("roastery")} placeholder="اسم المحمصة" />
+          </div>
+        </Section>
+
+        {/* device / machine */}
+        <Section title={form.brewType === "espresso" ? "المكينة والباسكت" : "الأداة"} icon="⚙️">
+          {form.brewType === "espresso" ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+              <FInput label="نوع المكينة" value={form.machine} onChange={f("machine")} placeholder="مثال: La Marzocca، Slayer..." />
+              <FInput label="حجم الباسكت" value={form.basketSize} onChange={f("basketSize")} placeholder="مثال: 18g، 20g، VST 18g" />
+            </div>
+          ) : (
+            <DevicePicker
+              device={form.brewDevice}
+              deviceNote={form.brewDeviceNote}
+              onDevice={v => setForm(p => ({ ...p, brewDevice: v, brewDeviceNote: "" }))}
+              onNote={v => setForm(p => ({ ...p, brewDeviceNote: v }))}
+            />
+          )}
+        </Section>
+
+        <Section title="الطحن" icon="⚙">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+            <FInput label="الطاحونة" value={form.grinder} onChange={f("grinder")} placeholder="مثال: E55، Varia VS3..." />
+            <FInput label="إعداد الطحن" value={form.grindSetting} onChange={f("grindSetting")} placeholder="الرقم أو الدرجة" />
+            <div style={{ gridColumn: "1/-1" }}>
+              <FInput label="نوع الطحنة" value={form.grindLevel} onChange={f("grindLevel")} options={GRIND_LEVELS} />
+            </div>
+          </div>
+        </Section>
+
+        <Section title="معايير التحضير" icon="⚗️">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+            <FInput label="كمية البن (g)" type="number" value={form.coffeeAmount} onChange={fNum("coffeeAmount")} />
+            {form.brewType === "espresso"
+              ? <FInput label="كمية الاستخلاص (ml)" type="number" value={form.extractionAmount} onChange={fNum("extractionAmount")} />
+              : <FInput label="كمية الماء (ml)" type="number" value={form.waterAmount} onChange={fNum("waterAmount")} />
+            }
+            <FInput label="الريشو" value={form.ratio} onChange={f("ratio")} placeholder="يُحسب تلقائياً أو اكتبه" hint="يُحسب تلقائياً عند إدخال البن والماء" />
+            <FInput label="درجة الحرارة (°م)" type="number" value={form.waterTemp} onChange={f("waterTemp")} />
+            <FInput label="زمن الاستخلاص (ثانية)" type="number" value={form.extractionTime} onChange={f("extractionTime")} />
+            <FInput label="TDS (%)" type="number" value={form.tds} onChange={f("tds")} />
+            {form.brewType === "filter" && <>
+              <FInput label="البلوم (ml)" type="number" value={form.bloom} onChange={f("bloom")} />
+              <FInput label="مدة البلوم (ثانية)" type="number" value={form.bloomTime} onChange={f("bloomTime")} />
+              <div style={{ gridColumn: "1/-1" }}>
+                <FInput label="الصبات" value={form.pours} onChange={f("pours")} placeholder="مثال: بلوم 30g ← 140g ← 250g" />
+              </div>
+            </>}
+          </div>
+        </Section>
+
+        <Section title="معلومات المحصول" icon="🌱">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+            <FInput label="الأصل / المنشأ" value={form.origin} onChange={f("origin")} placeholder="مثال: إثيوبيا – سيداما" />
+            <FInput label="الارتفاع" value={form.altitude} onChange={f("altitude")} placeholder="مثال: 1900m" />
+            <FInput label="المعالجة" value={form.processing} onChange={f("processing")} options={PROCESSING} />
+            <FInput label="درجة التحميص" value={form.roastLevel} onChange={f("roastLevel")} options={ROAST_LEVELS} />
+          </div>
+        </Section>
+
+        <Section title="التجربة الحسية" icon="👃">
+          <FInput label="الرائحة" value={form.sensory.aroma} onChange={fSensory("aroma")} placeholder="ما تشمه أول ما تفتح الكوب" />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+            <FInput label="بداية الكوب" value={form.sensory.start} onChange={fSensory("start")} />
+            <FInput label="منتصف الكوب" value={form.sensory.mid} onChange={fSensory("mid")} />
+          </div>
+          <FInput label="نهاية الكوب (Finish)" value={form.sensory.finish} onChange={fSensory("finish")} />
+          <FInput label="Aftertaste" value={form.sensory.aftertaste} onChange={fSensory("aftertaste")} />
+        </Section>
+
+        <Section title="ملاحظات وتقييم" icon="📝">
+          <FInput label="ملاحظات" type="textarea" value={form.notes} onChange={f("notes")} placeholder="أي شيء تبي تتذكره عن هذه الجلسة..." />
+          <div style={{ marginBottom: 8 }}>
+            <FieldLabel>التقييم</FieldLabel>
+            <Stars value={form.rating} onChange={v => setForm(p => ({ ...p, rating: v }))} />
+          </div>
+        </Section>
+
+        <button onClick={handleSave} style={{
+          width: "100%",
+          background: "linear-gradient(135deg,#D4A843,#a07828)",
+          border: "none", borderRadius: 12, padding: 14,
+          color: "#0f0b07", fontWeight: 800, cursor: "pointer",
+          fontSize: 15, fontFamily: "'Noto Sans Arabic', sans-serif",
+          marginTop: 8, transition: "opacity .2s",
+        }}
+          onMouseEnter={e => (e.target.style.opacity = ".85")}
+          onMouseLeave={e => (e.target.style.opacity = "1")}>
+          💾 حفظ الوصفة
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+export default function App() {
+  const [recipes, setRecipes] = useState(SEED_RECIPES);
+  const [showForm, setShowForm] = useState(false);
+  const [viewRecipe, setViewRecipe] = useState(null);
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState("all");
+
+  const handleSave = (rec) => { setRecipes(p => [rec, ...p]); setShowForm(false); };
+  const handleDelete = (id) => setRecipes(p => p.filter(r => r.id !== id));
+
+  const filtered = recipes.filter(r => {
+    const matchType = filterType === "all" || r.brewType === filterType;
+    const q = search.toLowerCase();
+    const matchSearch = !q || r.name.toLowerCase().includes(q) ||
+      (r.origin || "").toLowerCase().includes(q) ||
+      (r.roastery || "").toLowerCase().includes(q) ||
+      (r.processing || "").toLowerCase().includes(q);
+    return matchType && matchSearch;
+  });
+
+  const avgRating = recipes.length
+    ? (recipes.reduce((a, r) => a + (r.rating || 0), 0) / recipes.length).toFixed(1)
+    : "—";
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Noto+Sans+Arabic:wght@400;700&display=swap');
+        * { box-sizing: border-box; }
+        body { margin: 0; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0d0903; }
+        ::-webkit-scrollbar-thumb { background: #3a2a15; border-radius: 3px; }
+        select option { background: #1a1209; color: #e8d8c0; }
+      `}</style>
+
+      <div style={{
+        minHeight: "100vh",
+        background: "radial-gradient(ellipse 80% 60% at 30% 0%, #1f1005 0%, #0a0603 55%, #060402 100%)",
+        fontFamily: "'Noto Sans Arabic', sans-serif",
+        direction: "rtl", color: "#e8d8c0",
+      }}>
+        <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 20px 60px" }}>
+
+          {/* ── HEADER ── */}
+          <div style={{ textAlign: "center", marginBottom: 52 }}>
+            <div style={{ fontSize: 50, marginBottom: 10 }}>☕</div>
+            <h1 style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: "clamp(30px,5vw,46px)", fontWeight: 900,
+              color: "#f0e4cc", margin: "0 0 8px", letterSpacing: "-0.02em",
+            }}>مذكرة الوصفات</h1>
+            <p style={{ color: "#6a5035", fontSize: 13, margin: 0, fontFamily: "monospace" }}>
+              سجّل · قيّم · طوّر
+            </p>
+            <div style={{ width: 50, height: 1, background: "linear-gradient(90deg,transparent,#D4A843,transparent)", margin: "16px auto 0" }} />
+          </div>
+
+          {/* ── STATS ── */}
+          {recipes.length > 0 && (
+            <div style={{
+              display: "grid", gridTemplateColumns: "repeat(3,1fr)",
+              gap: 1, background: "#2a1e10",
+              borderRadius: 14, overflow: "hidden",
+              border: "1px solid #2a1e10", marginBottom: 32,
+            }}>
+              {[
+                { n: recipes.length, label: "وصفة مسجلة" },
+                { n: avgRating, label: "متوسط التقييم" },
+                { n: [...new Set(recipes.map(r => r.brewType === "espresso" ? "إسبريسو" : r.brewDevice))].length, label: "أداة مختلفة" },
+              ].map((s, i) => (
+                <div key={i} style={{ background: "#120d07", padding: "16px 0", textAlign: "center" }}>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: "#D4A843", fontFamily: "monospace" }}>{s.n}</div>
+                  <div style={{ fontSize: 10, color: "#5a4030", fontFamily: "monospace" }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── CONTROLS ── */}
+          <div style={{ display: "flex", gap: 10, marginBottom: 28, flexWrap: "wrap" }}>
+            <input
+              value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="ابحث عن وصفة أو محصول..."
+              style={{
+                flex: 1, minWidth: 160, background: "#120d07",
+                border: "1px solid #2e2318", borderRadius: 12,
+                padding: "11px 16px", color: "#e8d8c0",
+                fontFamily: "inherit", fontSize: 13, outline: "none",
+              }}
+            />
+            {["all", "espresso", "filter"].map(t => (
+              <button key={t} onClick={() => setFilterType(t)}
+                style={{
+                  background: filterType === t ? "linear-gradient(135deg,#D4A843,#a07828)" : "#120d07",
+                  border: `1px solid ${filterType === t ? "#D4A843" : "#2e2318"}`,
+                  borderRadius: 12, padding: "11px 16px",
+                  color: filterType === t ? "#0f0b07" : "#6a5035",
+                  fontFamily: "inherit", fontSize: 12, cursor: "pointer",
+                  fontWeight: filterType === t ? 800 : 400, transition: "all .18s",
+                }}>
+                {t === "all" ? "الكل" : t === "espresso" ? "☕ إسبريسو" : "🫗 مقطرة"}
+              </button>
+            ))}
+            <button onClick={() => setShowForm(true)}
+              style={{
+                background: "linear-gradient(135deg,#D4A843,#a07828)",
+                border: "none", borderRadius: 12, padding: "11px 20px",
+                color: "#0f0b07", fontWeight: 800, cursor: "pointer",
+                fontSize: 13, fontFamily: "inherit", whiteSpace: "nowrap",
+                transition: "opacity .2s",
+              }}
+              onMouseEnter={e => (e.target.style.opacity = ".85")}
+              onMouseLeave={e => (e.target.style.opacity = "1")}>
+              + وصفة جديدة
+            </button>
+          </div>
+
+          {/* ── GRID ── */}
+          {filtered.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "80px 20px", color: "#3a2a15" }}>
+              <div style={{ fontSize: 52, marginBottom: 16, opacity: .4 }}>☕</div>
+              <div style={{ fontSize: 15, fontFamily: "monospace" }}>
+                {recipes.length === 0 ? "لا وصفات بعد – سجّل أول جلسة!" : "لا نتائج"}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 16 }}>
+              {filtered.map(r => (
+                <RecipeCard key={r.id} recipe={r} onDelete={handleDelete} onView={setViewRecipe} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {showForm && <AddForm onSave={handleSave} onClose={() => setShowForm(false)} />}
+      {viewRecipe && <DetailView recipe={viewRecipe} onClose={() => setViewRecipe(null)} />}
+    </>
+  );
+}
