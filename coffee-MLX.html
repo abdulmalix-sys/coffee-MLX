@@ -46,7 +46,11 @@ const SEED_RECIPES = [
     grinder: "فيموبوك", grindSetting: "2.0",
     coffeeAmount: 15, waterAmount: 250, extractionAmount: "", ratio: "1:16.7",
     waterTemp: 90, extractionTime: "", bloom: 30, bloomTime: 45,
-    pours: "3 صبات: بلوم 30g ← 140g ← 250g",
+    pours: [
+      { amount: 30, seconds: 45 },
+      { amount: 140, seconds: "" },
+      { amount: 250, seconds: "" },
+    ],
     sensory: {
       aroma: "فواكه حمراء ذات طابع حلو", start: "فراولة", mid: "توت",
       finish: "حلاوة مرتفعة تشبه الحلوى الصلبة",
@@ -82,7 +86,7 @@ const EMPTY_FORM = {
   grinder:"", grindSetting:"", grindLevel:"",
   coffeeAmount:"", waterAmount:"", extractionAmount:"",
   ratio:"", waterTemp:"", extractionTime:"", tds:"",
-  bloom:"", bloomTime:"", pours:"",
+  bloom:"", bloomTime:"", pours:[],
   sensory:{aroma:"",start:"",mid:"",finish:"",aftertaste:""},
   notes:"", rating:4,
 };
@@ -110,8 +114,8 @@ function Tag({children}){
 }
 
 function FL({children,required}){
-  return <label style={{display:"block",fontSize:10,color:"#7a6248",marginBottom:6,
-    letterSpacing:"0.1em",textTransform:"uppercase",fontFamily:"monospace"}}>
+  return <label style={{display:"block",fontSize:11,color:"#a8906c",marginBottom:6,
+    fontFamily:"'Noto Sans Arabic',sans-serif",fontWeight:700}}>
     {children}{required&&<span style={{color:"#D4A843",marginRight:3}}>*</span>}
   </label>;
 }
@@ -138,7 +142,7 @@ function FInput({label,type="text",value,onChange,placeholder,required,options,h
         onFocus={e=>(e.target.style.borderColor="#D4A843")}
         onBlur={e=>(e.target.style.borderColor="#2e2318")}/>
     )}
-    {hint&&<div style={{fontSize:10,color:"#5a4535",marginTop:4,fontFamily:"monospace"}}>{hint}</div>}
+    {hint&&<div style={{fontSize:11,color:"#8a7660",marginTop:4,fontFamily:"'Noto Sans Arabic',sans-serif"}}>{hint}</div>}
   </div>;
 }
 
@@ -147,8 +151,8 @@ function Section({title,icon,children}){
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,
       paddingBottom:8,borderBottom:"1px solid #2a1e12"}}>
       <span style={{fontSize:16}}>{icon}</span>
-      <span style={{fontSize:11,color:"#8a6a40",letterSpacing:"0.15em",
-        textTransform:"uppercase",fontFamily:"monospace",fontWeight:700}}>{title}</span>
+      <span style={{fontSize:13,color:"#c8a878",
+        fontFamily:"'Noto Sans Arabic',sans-serif",fontWeight:700}}>{title}</span>
     </div>
     {children}
   </div>;
@@ -202,7 +206,72 @@ function DevicePicker({device,deviceNote,onDevice,onNote}){
   </>;
 }
 
-function RecipeCard({recipe,onDelete,onView}){
+function PoursEditor({pours,onChange}){
+  const list = Array.isArray(pours) ? pours : [];
+  const updatePour=(i,field,val)=>{
+    const next=list.map((p,idx)=>idx===i?{...p,[field]:val}:p);
+    onChange(next);
+  };
+  const addPour=()=>onChange([...list,{amount:"",seconds:""}]);
+  const removePour=(i)=>onChange(list.filter((_,idx)=>idx!==i));
+
+  const pourLabels=["الصبة الأولى","الصبة الثانية","الصبة الثالثة","الصبة الرابعة","الصبة الخامسة","الصبة السادسة"];
+
+  return <div style={{marginBottom:14}}>
+    <FL>الصبات</FL>
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      {list.map((p,i)=>(
+        <div key={i} style={{display:"flex",alignItems:"center",gap:8,
+          background:"#110d08",border:"1px solid #2a1e10",borderRadius:10,
+          padding:"10px 12px"}}>
+          <span style={{fontSize:13,color:"#c8a878",fontFamily:"'Noto Sans Arabic',sans-serif",
+            fontWeight:700,minWidth:78,flexShrink:0}}>
+            {pourLabels[i]||`الصبة ${i+1}`}
+          </span>
+          <div style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
+            <input type="number" value={p.amount} onChange={e=>updatePour(i,"amount",e.target.value)}
+              placeholder="30"
+              style={{width:"100%",background:"#0f0b07",border:"1px solid #2e2318",
+                borderRadius:8,padding:"8px 10px",color:"#e8d8c0",
+                fontFamily:"monospace",fontSize:14,outline:"none",textAlign:"center",
+                boxSizing:"border-box"}}
+              onFocus={e=>(e.target.style.borderColor="#D4A843")}
+              onBlur={e=>(e.target.style.borderColor="#2e2318")}/>
+            <span style={{fontSize:12,color:"#a08868",fontFamily:"monospace",flexShrink:0}}>g</span>
+          </div>
+          <span style={{fontSize:13,color:"#8a7660",fontFamily:"'Noto Sans Arabic',sans-serif",flexShrink:0}}>خلال</span>
+          <div style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
+            <input type="number" value={p.seconds} onChange={e=>updatePour(i,"seconds",e.target.value)}
+              placeholder="30"
+              style={{width:"100%",background:"#0f0b07",border:"1px solid #2e2318",
+                borderRadius:8,padding:"8px 10px",color:"#e8d8c0",
+                fontFamily:"monospace",fontSize:14,outline:"none",textAlign:"center",
+                boxSizing:"border-box"}}
+              onFocus={e=>(e.target.style.borderColor="#D4A843")}
+              onBlur={e=>(e.target.style.borderColor="#2e2318")}/>
+            <span style={{fontSize:12,color:"#a08868",fontFamily:"monospace",flexShrink:0}}>ث</span>
+          </div>
+          <button onClick={()=>removePour(i)}
+            style={{background:"none",border:"none",color:"#5a4030",cursor:"pointer",
+              fontSize:15,padding:"2px 4px",flexShrink:0,transition:"color .2s"}}
+            onMouseEnter={e=>(e.target.style.color="#e05555")}
+            onMouseLeave={e=>(e.target.style.color="#5a4030")}>✕</button>
+        </div>
+      ))}
+    </div>
+    <button onClick={addPour} type="button"
+      style={{marginTop:10,background:"#150f08",border:"1px dashed #4a3828",
+        borderRadius:10,padding:"10px 16px",color:"#D4A843",cursor:"pointer",
+        fontSize:13,fontFamily:"'Noto Sans Arabic',sans-serif",fontWeight:700,
+        width:"100%",transition:"all .18s"}}
+      onMouseEnter={e=>{e.target.style.borderColor="#D4A843";e.target.style.background="#1a1409";}}
+      onMouseLeave={e=>{e.target.style.borderColor="#4a3828";e.target.style.background="#150f08";}}>
+      + إضافة صبة
+    </button>
+  </div>;
+}
+
+
   const isE = recipe.brewType==="espresso";
   return <div onClick={()=>onView(recipe)}
     style={{background:"linear-gradient(135deg,#1a130a 0%,#211710 100%)",
@@ -220,7 +289,7 @@ function RecipeCard({recipe,onDelete,onView}){
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
       <div>
         <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:"#f0e4cc",fontWeight:700,marginBottom:2}}>{recipe.name}</div>
-        <div style={{fontSize:11,color:"#6a5035",fontFamily:"monospace"}}>
+        <div style={{fontSize:12,color:"#a08868",fontFamily:"'Noto Sans Arabic',sans-serif"}}>
           {new Date(recipe.date).toLocaleDateString("ar-SA")}
           {recipe.roastery&&` · ${recipe.roastery}`}
         </div>
@@ -245,19 +314,20 @@ function RecipeCard({recipe,onDelete,onView}){
       ].filter(x=>x.v).map((x,i)=>(
         <div key={i} style={{textAlign:"center"}}>
           <div style={{fontSize:15,fontWeight:700,color:"#D4A843",fontFamily:"monospace"}}>{x.v}</div>
-          <div style={{fontSize:10,color:"#6a5035"}}>{x.l}</div>
+          <div style={{fontSize:11,color:"#a08868",fontFamily:"'Noto Sans Arabic',sans-serif"}}>{x.l}</div>
         </div>
       ))}
     </div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <Stars value={recipe.rating}/>
-      {recipe.grinder&&<span style={{fontSize:11,color:"#5a4030",fontFamily:"monospace"}}>⚙ {recipe.grinder}{recipe.grindSetting&&` · ${recipe.grindSetting}`}</span>}
+      {recipe.grinder&&<span style={{fontSize:12,color:"#a08868",fontFamily:"'Noto Sans Arabic',sans-serif"}}>⚙ {recipe.grinder}{recipe.grindSetting&&` · ${recipe.grindSetting}`}</span>}
     </div>
   </div>;
 }
 
 function DetailView({recipe,onClose}){
   const isE = recipe.brewType==="espresso";
+  const poursList = Array.isArray(recipe.pours) ? recipe.pours.filter(p=>p.amount||p.seconds) : [];
   const rows=[
     isE?["المكينة",recipe.machine]:["الأداة",recipe.brewDevice+(recipe.brewDeviceNote?` – ${recipe.brewDeviceNote}`:"")],
     isE?["حجم الباسكت",recipe.basketSize]:["الطاحونة",recipe.grinder],
@@ -272,7 +342,6 @@ function DetailView({recipe,onClose}){
     ["TDS",recipe.tds?`${recipe.tds}%`:null],
     !isE?["البلوم",recipe.bloom?`${recipe.bloom}g`:null]:null,
     !isE?["مدة البلوم",recipe.bloomTime?`${recipe.bloomTime}ث`:null]:null,
-    !isE?["الصبات",recipe.pours]:null,
     ["الأصل",recipe.origin],["الارتفاع",recipe.altitude],
     ["المعالجة",recipe.processing],["المحمصة",recipe.roastery],["التحميص",recipe.roastLevel],
   ].filter(r=>r&&r[1]);
@@ -293,7 +362,7 @@ function DetailView({recipe,onClose}){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
         <div>
           <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:"#f0e4cc",margin:"0 0 4px"}}>{recipe.name}</h2>
-          <div style={{fontSize:12,color:"#6a5035",fontFamily:"monospace"}}>
+          <div style={{fontSize:12,color:"#a08868",fontFamily:"'Noto Sans Arabic',sans-serif"}}>
             {new Date(recipe.date).toLocaleDateString("ar-SA")}
             {recipe.origin&&` · ${recipe.origin}`}
           </div>
@@ -304,19 +373,44 @@ function DetailView({recipe,onClose}){
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:20}}>
         {rows.map(([k,v])=>(
           <div key={k} style={{background:"#0f0b07",borderRadius:10,padding:"11px 14px",border:"1px solid #221810"}}>
-            <div style={{fontSize:9,color:"#5a4535",fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>{k}</div>
+            <div style={{fontSize:11,color:"#b09878",fontFamily:"'Noto Sans Arabic',sans-serif",marginBottom:4}}>{k}</div>
             <div style={{fontSize:14,color:"#D4A843",fontFamily:"monospace",fontWeight:700}}>{v}</div>
           </div>
         ))}
       </div>
+      {poursList.length>0&&(
+        <div style={{marginTop:20}}>
+          <div style={{fontSize:13,color:"#c8a878",fontFamily:"'Noto Sans Arabic',sans-serif",fontWeight:700,marginBottom:10}}>◈ الصبات</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {poursList.map((p,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:10,
+                background:"#0f0b07",borderRadius:10,padding:"10px 14px",border:"1px solid #221810"}}>
+                <span style={{fontSize:12,color:"#b09878",fontFamily:"'Noto Sans Arabic',sans-serif",
+                  fontWeight:700,minWidth:78}}>
+                  {["الصبة الأولى","الصبة الثانية","الصبة الثالثة","الصبة الرابعة","الصبة الخامسة","الصبة السادسة"][i]||`الصبة ${i+1}`}
+                </span>
+                {p.amount&&(
+                  <span style={{fontSize:14,color:"#D4A843",fontFamily:"monospace",fontWeight:700}}>{p.amount}g</span>
+                )}
+                {p.amount&&p.seconds&&(
+                  <span style={{fontSize:12,color:"#8a7660",fontFamily:"'Noto Sans Arabic',sans-serif"}}>خلال</span>
+                )}
+                {p.seconds&&(
+                  <span style={{fontSize:14,color:"#D4A843",fontFamily:"monospace",fontWeight:700}}>{p.seconds} ث</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {sens.length>0&&(
         <div style={{marginTop:20}}>
-          <div style={{fontSize:10,color:"#7a6040",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"monospace",marginBottom:10}}>◈ التجربة الحسية</div>
+          <div style={{fontSize:13,color:"#c8a878",fontFamily:"'Noto Sans Arabic',sans-serif",fontWeight:700,marginBottom:10}}>◈ التجربة الحسية</div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {sens.map(([k,v])=>(
               <div key={k} style={{display:"flex",gap:12,alignItems:"flex-start",background:"#0f0b07",borderRadius:10,padding:"10px 14px",border:"1px solid #221810"}}>
-                <span style={{fontSize:10,color:"#5a4535",fontFamily:"monospace",whiteSpace:"nowrap",paddingTop:2,minWidth:70}}>{k}</span>
-                <span style={{fontSize:13,color:"#c8a870",lineHeight:1.5}}>{v}</span>
+                <span style={{fontSize:11,color:"#b09878",fontFamily:"'Noto Sans Arabic',sans-serif",whiteSpace:"nowrap",paddingTop:2,minWidth:70,fontWeight:700}}>{k}</span>
+                <span style={{fontSize:13,color:"#e8d8c0",lineHeight:1.5}}>{v}</span>
               </div>
             ))}
           </div>
@@ -325,8 +419,8 @@ function DetailView({recipe,onClose}){
       {recipe.notes&&(
         <div style={{marginTop:16,background:"#0f0b07",borderRadius:10,padding:14,
           border:"1px solid #221810",borderRight:"3px solid #D4A843"}}>
-          <div style={{fontSize:9,color:"#5a4535",fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>ملاحظات</div>
-          <div style={{fontSize:13,color:"#b09060",lineHeight:1.7}}>{recipe.notes}</div>
+          <div style={{fontSize:11,color:"#b09878",fontFamily:"'Noto Sans Arabic',sans-serif",fontWeight:700,marginBottom:6}}>ملاحظات</div>
+          <div style={{fontSize:13,color:"#e8d8c0",lineHeight:1.7}}>{recipe.notes}</div>
         </div>
       )}
     </div>
@@ -373,6 +467,14 @@ function AddForm({onSave,onClose}){
           <FInput label="المحمصة" value={form.roastery} onChange={f("roastery")} placeholder="اسم المحمصة"/>
         </div>
       </Section>
+      <Section title="معلومات المحصول" icon="🌱">
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+          <FInput label="الأصل / المنشأ" value={form.origin} onChange={f("origin")} placeholder="مثال: إثيوبيا – سيداما"/>
+          <FInput label="الارتفاع" value={form.altitude} onChange={f("altitude")} placeholder="مثال: 1900m"/>
+          <FInput label="المعالجة" value={form.processing} onChange={f("processing")} options={PROCESSING}/>
+          <FInput label="درجة التحميص" value={form.roastLevel} onChange={f("roastLevel")} options={ROAST_LEVELS}/>
+        </div>
+      </Section>
       <Section title={form.brewType==="espresso"?"المكينة والباسكت":"الأداة"} icon="⚙️">
         {form.brewType==="espresso"?(
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
@@ -408,19 +510,11 @@ function AddForm({onSave,onClose}){
           {form.brewType==="filter"&&<>
             <FInput label="البلوم (ml)" type="number" value={form.bloom} onChange={f("bloom")}/>
             <FInput label="مدة البلوم (ثانية)" type="number" value={form.bloomTime} onChange={f("bloomTime")}/>
-            <div style={{gridColumn:"1/-1"}}>
-              <FInput label="الصبات" value={form.pours} onChange={f("pours")} placeholder="مثال: بلوم 30g ← 140g ← 250g"/>
-            </div>
           </>}
         </div>
-      </Section>
-      <Section title="معلومات المحصول" icon="🌱">
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-          <FInput label="الأصل / المنشأ" value={form.origin} onChange={f("origin")} placeholder="مثال: إثيوبيا – سيداما"/>
-          <FInput label="الارتفاع" value={form.altitude} onChange={f("altitude")} placeholder="مثال: 1900m"/>
-          <FInput label="المعالجة" value={form.processing} onChange={f("processing")} options={PROCESSING}/>
-          <FInput label="درجة التحميص" value={form.roastLevel} onChange={f("roastLevel")} options={ROAST_LEVELS}/>
-        </div>
+        {form.brewType==="filter"&&(
+          <PoursEditor pours={form.pours} onChange={v=>setForm(p=>({...p,pours:v}))}/>
+        )}
       </Section>
       <Section title="التجربة الحسية" icon="👃">
         <FInput label="الرائحة" value={form.sensory.aroma} onChange={fS("aroma")} placeholder="ما تشمه أول ما تفتح الكوب"/>
@@ -490,7 +584,7 @@ function App(){
           <h1 style={{fontFamily:"'Playfair Display',serif",
             fontSize:"clamp(30px,5vw,46px)",fontWeight:900,
             color:"#f0e4cc",margin:"0 0 8px",letterSpacing:"-0.02em"}}>مذكرة الوصفات</h1>
-          <p style={{color:"#6a5035",fontSize:13,margin:0,fontFamily:"monospace"}}>سجّل · قيّم · طوّر</p>
+          <p style={{color:"#a08868",fontSize:14,margin:0,fontFamily:"'Noto Sans Arabic',sans-serif"}}>سجّل · قيّم · طوّر</p>
           <div style={{width:50,height:1,background:"linear-gradient(90deg,transparent,#D4A843,transparent)",margin:"16px auto 0"}}/>
         </div>
         {recipes.length>0&&(
@@ -504,7 +598,7 @@ function App(){
             ].map((s,i)=>(
               <div key={i} style={{background:"#120d07",padding:"16px 0",textAlign:"center"}}>
                 <div style={{fontSize:26,fontWeight:800,color:"#D4A843",fontFamily:"monospace"}}>{s.n}</div>
-                <div style={{fontSize:10,color:"#5a4030",fontFamily:"monospace"}}>{s.label}</div>
+                <div style={{fontSize:12,color:"#b09878",fontFamily:"'Noto Sans Arabic',sans-serif",marginTop:4}}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -537,9 +631,9 @@ function App(){
           </button>
         </div>
         {filtered.length===0?(
-          <div style={{textAlign:"center",padding:"80px 20px",color:"#3a2a15"}}>
+          <div style={{textAlign:"center",padding:"80px 20px",color:"#6a5640"}}>
             <div style={{fontSize:52,marginBottom:16,opacity:.4}}>☕</div>
-            <div style={{fontSize:15,fontFamily:"monospace"}}>
+            <div style={{fontSize:15,fontFamily:"'Noto Sans Arabic',sans-serif"}}>
               {recipes.length===0?"لا وصفات بعد – سجّل أول جلسة!":"لا نتائج"}
             </div>
           </div>
