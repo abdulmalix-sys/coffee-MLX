@@ -271,7 +271,7 @@ function PoursEditor({pours,onChange}){
   </div>;
 }
 
-
+function RecipeCard({recipe,onDelete,onView}){
   const isE = recipe.brewType==="espresso";
   return <div onClick={()=>onView(recipe)}
     style={{background:"linear-gradient(135deg,#1a130a 0%,#211710 100%)",
